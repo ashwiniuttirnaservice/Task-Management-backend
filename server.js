@@ -10,10 +10,18 @@ const { TEAM_DATA } = require("./utils/teamData");
 const app = express();
 
 // ---- Middleware ----
-const allowedOrigins = (
-  process.env.CLIENT_ORIGIN || "http://localhost:3000"
-).split(",");
-app.use(cors({ origin: allowedOrigins }));
+// ---- Middleware ----
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://task.uttirna.in")
+  .split(",")
+  .map((origin) => origin.trim());
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
+
 app.use(express.json());
 
 // ---- Routes ----
@@ -45,10 +53,15 @@ const PORT = process.env.PORT || 5001;
 async function bootstrapTeam() {
   const count = await TeamMember.countDocuments();
   if (count > 0) return;
-  const members = Object.entries(TEAM_DATA).map(([name, projects]) => ({ name, projects }));
+  const members = Object.entries(TEAM_DATA).map(([name, projects]) => ({
+    name,
+    projects,
+  }));
   if (!members.length) return;
   await TeamMember.insertMany(members);
-  console.log(`[Server] Seeded ${members.length} team members from teamData.js`);
+  console.log(
+    `[Server] Seeded ${members.length} team members from teamData.js`,
+  );
 }
 
 connectDB().then(async () => {
