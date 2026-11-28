@@ -44,10 +44,6 @@ const TeamMemberSchema = new mongoose.Schema(
       enum:    ["intern", "frontend", "backend", "fullStack"],
       default: "intern",
     },
-    projects: {
-      type:    [String],
-      default: [],
-    },
     isActive: {
       type:    Boolean,
       default: true,

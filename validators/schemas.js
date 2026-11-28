@@ -68,6 +68,39 @@ exports.taskQuerySchema = z.object({
   search:   z.string().trim().optional(),
 });
 
+/* ---- project schemas ---- */
+const optStr = z.preprocess((v) => (v == null ? "" : v), z.string().trim());
+
+const resourceSchema = z.object({
+  title:       optStr,
+  type:        z.preprocess((v) => v ?? "other", z.enum(["repository", "document", "deployment", "design", "reference", "other"])),
+  category:    optStr,
+  url:         z.preprocess((v) => (v == null ? "" : v), z.string().trim().url("Enter a valid URL").or(z.literal(""))),
+  description: optStr,
+});
+
+const objectIdStr = z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid ID");
+
+exports.createProjectSchema = z.object({
+  name:        z.string().trim().min(1, "Project name is required"),
+  description: optStr,
+  status:      z.preprocess((v) => v ?? "planning", z.enum(["planning", "active", "onHold", "completed"])),
+  startDate:   z.preprocess((v) => (v == null ? "" : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal(""))),
+  endDate:     z.preprocess((v) => (v == null ? "" : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal(""))),
+  resources:   z.array(resourceSchema).optional().default([]),
+  members:     z.array(objectIdStr).optional().default([]),
+});
+
+exports.updateProjectSchema = z.object({
+  name:        z.string().trim().min(1).optional(),
+  description: optStr.optional(),
+  status:      z.enum(["planning", "active", "onHold", "completed"]).optional(),
+  startDate:   z.preprocess((v) => (v == null ? "" : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal(""))).optional(),
+  endDate:     z.preprocess((v) => (v == null ? "" : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal(""))).optional(),
+  resources:   z.array(resourceSchema).optional(),
+  members:     z.array(objectIdStr).optional(),
+});
+
 /* ---- team schemas ---- */
 const phoneStr = z
   .string()
@@ -85,7 +118,7 @@ exports.createMemberSchema = z.object({
   alternateNumber: phoneStr,
   role:            z.enum(["employee", "admin"]).optional().default("employee"),
   position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional().default("intern"),
-  projects:        z.array(z.string().trim()).optional().default([]),
+  projects:        z.array(z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid project ID")).optional().default([]),
   isActive:        z.boolean().optional().default(true),
 });
 
@@ -97,6 +130,6 @@ exports.updateMemberSchema = z.object({
   alternateNumber: z.string().trim().optional(),
   role:            z.enum(["employee", "admin"]).optional(),
   position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional(),
-  projects:        z.array(z.string().trim()).optional(),
+  projects:        z.array(z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid project ID")).optional(),
   isActive:        z.boolean().optional(),
 });
