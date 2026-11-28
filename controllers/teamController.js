@@ -56,6 +56,14 @@ async function syncMemberProjects(memberId, newProjectIds = []) {
   return { toAdd, toRemove };
 }
 
+// GET /api/team/me — logged-in user's profile + their assigned projects
+exports.getMe = asyncHandler(async (req, res) => {
+  const projectsByMember = await buildProjectsByMember();
+  const member = req.user.toObject();
+  member.projects = projectsByMember[member._id.toString()] ?? [];
+  sendResponse(res, STATUS.OK, "Profile fetched", { data: { member } });
+});
+
 // GET /api/team — { name → [projectName, ...] } map (used by task dropdowns)
 exports.getTeam = asyncHandler(async (req, res) => {
   const [members, projectsByMember] = await Promise.all([
@@ -84,17 +92,16 @@ exports.getTeamList = asyncHandler(async (req, res) => {
 
 // POST /api/team
 exports.createMember = asyncHandler(async (req, res) => {
-  const { projects: projectIds = [], ...memberData } = validate(createMemberSchema, req.body);
+  const { projects: projectIds = [], password, ...memberData } = validate(createMemberSchema, req.body);
+  if (password) memberData.password = password;
 
   const member = await TeamMember.create(memberData).catch((err) => {
     if (err.code === 11000) throw AppError.conflict("An employee with this name already exists");
     throw err;
   });
 
-  // assign member to selected projects
   if (projectIds.length) {
     await syncMemberProjects(member._id, projectIds);
-    // notify (fire-and-forget)
     const projects = await Project.find({ _id: { $in: projectIds } }, "name");
     for (const p of projects) {
       emailService.sendProjectAssignedEmail({ name: member.name, workingEmail: member.workingEmail, projectName: p.name });
@@ -102,13 +109,19 @@ exports.createMember = asyncHandler(async (req, res) => {
   }
 
   sendResponse(res, STATUS.CREATED, "Member created", { data: { member } });
-  emailService.sendWelcomeEmail({ name: member.name, workingEmail: member.workingEmail });
+  if (password) {
+    emailService.sendPasswordEmail({ name: member.name, workingEmail: member.workingEmail, password, isNew: true });
+  } else {
+    emailService.sendWelcomeEmail({ name: member.name, workingEmail: member.workingEmail });
+  }
 });
 
 // PUT /api/team/:id
 exports.updateMember = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid team member id");
-  const { projects: projectIds, ...memberData } = validate(updateMemberSchema, req.body);
+  const { projects: projectIds, password, ...memberData } = validate(updateMemberSchema, req.body);
+
+  if (password) memberData.password = password;
 
   const member = await TeamMember.findByIdAndUpdate(req.params.id, memberData, {
     new: true, runValidators: true,
@@ -118,10 +131,8 @@ exports.updateMember = asyncHandler(async (req, res) => {
   });
   if (!member) throw AppError.notFound("Team member not found");
 
-  // sync project membership if projects list was sent
   if (Array.isArray(projectIds)) {
     const { toAdd } = await syncMemberProjects(member._id, projectIds);
-    // notify only newly added projects (fire-and-forget)
     if (toAdd.length && member.workingEmail) {
       const projects = await Project.find({ _id: { $in: toAdd } }, "name");
       for (const p of projects) {
@@ -131,6 +142,9 @@ exports.updateMember = asyncHandler(async (req, res) => {
   }
 
   sendResponse(res, STATUS.OK, "Member updated", { data: { member } });
+  if (password) {
+    emailService.sendPasswordEmail({ name: member.name, workingEmail: member.workingEmail, password, isNew: false });
+  }
 });
 
 // DELETE /api/team/:id

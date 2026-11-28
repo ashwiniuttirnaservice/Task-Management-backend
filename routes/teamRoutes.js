@@ -5,6 +5,7 @@ const { protect, requireRole } = require("../middleware/authMiddleware");
 const {
   getTeam,
   getTeamList,
+  getMe,
   createMember,
   updateMember,
   deleteMember,
@@ -16,6 +17,7 @@ const admin = requireRole("admin");
 router.use(protect);
 
 // Read — all authenticated users
+router.get("/me",      getMe);
 router.get("/list",    getTeamList);
 router.get("/",        getTeam);
 

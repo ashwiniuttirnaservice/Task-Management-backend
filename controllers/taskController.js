@@ -60,7 +60,10 @@ exports.getTasks = asyncHandler(async (req, res) => {
   const { member, project, priority, status, search } = validate(taskQuerySchema, req.query);
   const query = {};
 
-  if (member)   query.assignedMembers = new mongoose.Types.ObjectId(member);
+  // Employees can only see their own tasks regardless of query params
+  const effectiveMember = req.user.role === "employee" ? req.user._id.toString() : member;
+
+  if (effectiveMember) query.assignedMembers = new mongoose.Types.ObjectId(effectiveMember);
   if (project)  query.projectName = project;
   if (priority) query.priority = priority;
   if (status)   query.status = status;

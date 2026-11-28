@@ -121,6 +121,7 @@ exports.createMemberSchema = z.object({
   position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional().default("intern"),
   projects:        z.array(z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid project ID")).optional().default([]),
   isActive:        z.boolean().optional().default(true),
+  password:        z.string().min(6, "Password must be at least 6 characters").optional(),
 });
 
 exports.updateMemberSchema = z.object({
@@ -133,4 +134,5 @@ exports.updateMemberSchema = z.object({
   position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional(),
   projects:        z.array(z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid project ID")).optional(),
   isActive:        z.boolean().optional(),
+  password:        z.string().min(6, "Password must be at least 6 characters").optional(),
 });

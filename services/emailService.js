@@ -115,9 +115,38 @@ async function sendTaskAssignedEmail({ employeeName, workingEmail, taskTitle, de
   });
 }
 
+/**
+ * Called when an admin sets or resets a member's login password.
+ */
+async function sendPasswordEmail({ name, workingEmail, password, isNew }) {
+  if (!workingEmail) return { sent: 0, skipped: 1 };
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const action = isNew ? "created" : "updated";
+  return send({
+    to:      workingEmail,
+    subject: `Your TaskPilot login password has been ${action}`,
+    html: `
+      <h2>Hi ${name},</h2>
+      <p>Your TaskPilot login password has been <strong>${action}</strong> by an admin.</p>
+      <p>
+        <strong>Email:</strong> ${workingEmail}<br/>
+        <strong>Password:</strong> <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">${password}</code>
+      </p>
+      <p>
+        <a href="${appUrl}/login" style="background:#2563eb;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;display:inline-block;">
+          Log in to TaskPilot
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:12px;">If you did not expect this, please contact your admin.</p>
+    `,
+    text: `Hi ${name}, your TaskPilot password has been ${action}.\nEmail: ${workingEmail}\nPassword: ${password}\nLogin: ${appUrl}/login`,
+  });
+}
+
 module.exports = {
   isConfigured,
   sendWelcomeEmail,
   sendProjectAssignedEmail,
   sendTaskAssignedEmail,
+  sendPasswordEmail,
 };
