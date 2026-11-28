@@ -4,8 +4,6 @@ const cors       = require("cors");
 const connectDB  = require("./config/db");
 const taskRoutes = require("./routes/taskRoutes");
 const teamRoutes = require("./routes/teamRoutes");
-const TeamMember = require("./models/TeamMember");
-const { TEAM_DATA } = require("./utils/teamData");
 const AppError     = require("./utils/AppError");
 const sendResponse = require("./utils/response");
 const STATUS       = require("./utils/statusCodes");
@@ -51,26 +49,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5001;
 
-// One-time bootstrap: the team roster used to be the hardcoded TEAM_DATA
-// object served straight from GET /api/team. Now it's a real collection —
-// on first run (empty collection) we seed it from TEAM_DATA so existing
-// deployments don't lose their roster when they upgrade.
-async function bootstrapTeam() {
-  const count = await TeamMember.countDocuments();
-  if (count > 0) return;
-  const members = Object.entries(TEAM_DATA).map(([name, projects]) => ({
-    name,
-    projects,
-  }));
-  if (!members.length) return;
-  await TeamMember.insertMany(members);
-  console.log(
-    `[Server] Seeded ${members.length} team members from teamData.js`,
-  );
-}
-
-connectDB().then(async () => {
-  await bootstrapTeam();
+connectDB().then(() => {
   app.listen(PORT, () =>
     console.log(`[Server] TaskPilot API listening on port ${PORT}`),
   );

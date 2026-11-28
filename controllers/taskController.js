@@ -5,6 +5,8 @@ const asyncHandler = require("../utils/asyncHandler");
 const sendResponse = require("../utils/response");
 const STATUS       = require("../utils/statusCodes");
 const validate     = require("../utils/validate");
+const emailService = require("../services/emailService");
+const TeamMember   = require("../models/TeamMember");
 const {
   createTaskSchema,
   updateTaskSchema,
@@ -91,6 +93,17 @@ exports.createTask = asyncHandler(async (req, res) => {
   const data = validate(createTaskSchema, req.body);
   const task = await Task.create(data);
   sendResponse(res, STATUS.CREATED, "Task created", { data: { task } });
+  // fire-and-forget — notify the assigned employee
+  TeamMember.findOne({ name: data.employeeName }).then((member) => {
+    if (member?.workingEmail) {
+      emailService.sendTaskAssignedEmail({
+        employeeName: data.employeeName,
+        workingEmail: member.workingEmail,
+        taskTitle:    data.title,
+        deadline:     data.deadline,
+      });
+    }
+  });
 });
 
 // PUT /api/tasks/:id  — full update (used by the edit form)

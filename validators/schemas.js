@@ -69,12 +69,34 @@ exports.taskQuerySchema = z.object({
 });
 
 /* ---- team schemas ---- */
+const phoneStr = z
+  .string()
+  .trim()
+  .regex(/^\+?[\d\s\-().]{7,15}$/, "Enter a valid phone number")
+  .or(z.literal(""))
+  .optional()
+  .default("");
+
 exports.createMemberSchema = z.object({
-  name:     z.string().trim().min(1, "Employee name is required"),
-  projects: z.array(z.string().trim()).optional().default([]),
+  name:            z.string().trim().min(1, "Employee name is required"),
+  workingEmail:    z.email({ message: "Enter a valid working email" }).optional(),
+  personalEmail:   z.email({ message: "Enter a valid personal email" }).or(z.literal("")).optional().default(""),
+  contactNumber:   phoneStr,
+  alternateNumber: phoneStr,
+  role:            z.enum(["employee", "admin"]).optional().default("employee"),
+  position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional().default("intern"),
+  projects:        z.array(z.string().trim()).optional().default([]),
+  isActive:        z.boolean().optional().default(true),
 });
 
 exports.updateMemberSchema = z.object({
-  name:     z.string().trim().min(1, "Employee name is required").optional(),
-  projects: z.array(z.string().trim()).optional(),
+  name:            z.string().trim().min(1, "Employee name is required").optional(),
+  workingEmail:    z.email({ message: "Enter a valid working email" }).optional(),
+  personalEmail:   z.email({ message: "Enter a valid personal email" }).or(z.literal("")).optional(),
+  contactNumber:   z.string().trim().optional(),
+  alternateNumber: z.string().trim().optional(),
+  role:            z.enum(["employee", "admin"]).optional(),
+  position:        z.enum(["intern", "frontend", "backend", "fullStack"]).optional(),
+  projects:        z.array(z.string().trim()).optional(),
+  isActive:        z.boolean().optional(),
 });

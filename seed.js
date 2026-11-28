@@ -39,7 +39,7 @@ async function seed() {
   await Task.insertMany(demoTasks);
   console.log(`[Seed] Inserted ${demoTasks.length} demo tasks.`);
 
-  const demoMembers = Object.entries(TEAM_DATA).map(([name, projects]) => ({ name, projects }));
+  const demoMembers = TEAM_DATA;
   await TeamMember.deleteMany({});
   await TeamMember.insertMany(demoMembers);
   console.log(`[Seed] Inserted ${demoMembers.length} team members.`);
