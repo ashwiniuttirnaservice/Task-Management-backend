@@ -1,0 +1,80 @@
+const { z } = require("zod");
+
+/* ---- reusable primitives ---- */
+const dateStr = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be a date in YYYY-MM-DD format");
+
+const timeStr = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Must be a time in HH:MM format");
+
+/* ---- task schemas ---- */
+exports.createTaskSchema = z
+  .object({
+    employeeName: z.string().trim().min(1, "Employee name is required"),
+    title:        z.string().trim().min(1, "Task title is required"),
+    description:  z.string().trim().min(1, "Description is required"),
+    projectName:  z.string().trim().optional().default(""),
+    priority:     z.enum(["High", "Medium", "Low"]).optional().default("Medium"),
+    status:       z.enum(["Pending", "In Progress", "Completed"]).optional().default("Pending"),
+    startDate:    dateStr,
+    deadline:     dateStr,
+    startTime:    timeStr,
+    endTime:      timeStr,
+  })
+  .refine((v) => v.deadline >= v.startDate, {
+    message: "Deadline cannot be earlier than the start date",
+    path:    ["deadline"],
+  })
+  .refine((v) => !(v.startDate === v.deadline && v.endTime <= v.startTime), {
+    message: "End time must be after start time",
+    path:    ["endTime"],
+  });
+
+exports.updateTaskSchema = z
+  .object({
+    employeeName: z.string().trim().min(1).optional(),
+    title:        z.string().trim().min(1).optional(),
+    description:  z.string().trim().min(1).optional(),
+    projectName:  z.string().trim().optional(),
+    priority:     z.enum(["High", "Medium", "Low"]).optional(),
+    status:       z.enum(["Pending", "In Progress", "Completed"]).optional(),
+    startDate:    dateStr.optional(),
+    deadline:     dateStr.optional(),
+    startTime:    timeStr.optional(),
+    endTime:      timeStr.optional(),
+  })
+  .refine(
+    (v) => !v.startDate || !v.deadline || v.deadline >= v.startDate,
+    { message: "Deadline cannot be earlier than the start date", path: ["deadline"] }
+  )
+  .refine(
+    (v) => !(v.startDate && v.deadline && v.startTime && v.endTime && v.startDate === v.deadline && v.endTime <= v.startTime),
+    { message: "End time must be after start time", path: ["endTime"] }
+  );
+
+exports.updateStatusSchema = z.object({
+  status: z.enum(["Pending", "In Progress", "Completed"], {
+    errorMap: () => ({ message: "Status must be Pending, In Progress or Completed" }),
+  }),
+});
+
+/* ---- query param schemas ---- */
+exports.taskQuerySchema = z.object({
+  employee: z.string().trim().optional(),
+  priority: z.enum(["High", "Medium", "Low"]).optional(),
+  status:   z.enum(["Pending", "In Progress", "Completed"]).optional(),
+  search:   z.string().trim().optional(),
+});
+
+/* ---- team schemas ---- */
+exports.createMemberSchema = z.object({
+  name:     z.string().trim().min(1, "Employee name is required"),
+  projects: z.array(z.string().trim()).optional().default([]),
+});
+
+exports.updateMemberSchema = z.object({
+  name:     z.string().trim().min(1, "Employee name is required").optional(),
+  projects: z.array(z.string().trim()).optional(),
+});

@@ -1,8 +1,16 @@
+const mongoose    = require("mongoose");
 const Task         = require("../models/Task");
 const AppError     = require("../utils/AppError");
 const asyncHandler = require("../utils/asyncHandler");
 const sendResponse = require("../utils/response");
 const STATUS       = require("../utils/statusCodes");
+const validate     = require("../utils/validate");
+const {
+  createTaskSchema,
+  updateTaskSchema,
+  updateStatusSchema,
+  taskQuerySchema,
+} = require("../validators/schemas");
 
 /* ---------------------------------------------------------------------
    Helpers
@@ -37,13 +45,17 @@ function getRangeBounds(range) {
   return { start, end };
 }
 
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
 /* ---------------------------------------------------------------------
    Controllers
    --------------------------------------------------------------------- */
 
 // GET /api/tasks  — supports optional ?employee=&priority=&status=&search=
 exports.getTasks = asyncHandler(async (req, res) => {
-  const { employee, priority, status, search } = req.query;
+  const { employee, priority, status, search } = validate(taskQuerySchema, req.query);
   const query = {};
 
   if (employee) query.employeeName = employee;
@@ -68,43 +80,24 @@ exports.getTasks = asyncHandler(async (req, res) => {
 
 // GET /api/tasks/:id
 exports.getTaskById = asyncHandler(async (req, res) => {
-  const task = await Task.findById(req.params.id).catch(() => {
-    throw AppError.badRequest("Invalid task id");
-  });
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
+  const task = await Task.findById(req.params.id);
   if (!task) throw AppError.notFound("Task not found");
   sendResponse(res, STATUS.OK, "Task fetched", { data: { task } });
 });
 
 // POST /api/tasks
 exports.createTask = asyncHandler(async (req, res) => {
-  const { employeeName, title, description, startDate, deadline, startTime, endTime } = req.body;
-
-  if (!employeeName || !title || !description || !startDate || !deadline || !startTime || !endTime) {
-    throw AppError.badRequest("employeeName, title, description, startDate, deadline, startTime and endTime are required");
-  }
-  if (new Date(deadline) < new Date(startDate)) {
-    throw AppError.badRequest("Deadline cannot be earlier than the start date");
-  }
-  if (startDate === deadline && endTime <= startTime) {
-    throw AppError.badRequest("End time must be after start time");
-  }
-
-  const task = await Task.create(req.body);
+  const data = validate(createTaskSchema, req.body);
+  const task = await Task.create(data);
   sendResponse(res, STATUS.CREATED, "Task created", { data: { task } });
 });
 
 // PUT /api/tasks/:id  — full update (used by the edit form)
 exports.updateTask = asyncHandler(async (req, res) => {
-  const { startDate, deadline, startTime, endTime } = req.body;
-
-  if (startDate && deadline && new Date(deadline) < new Date(startDate)) {
-    throw AppError.badRequest("Deadline cannot be earlier than the start date");
-  }
-  if (startDate && deadline && startTime && endTime && startDate === deadline && endTime <= startTime) {
-    throw AppError.badRequest("End time must be after start time");
-  }
-
-  const task = await Task.findByIdAndUpdate(req.params.id, req.body, {
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
+  const data = validate(updateTaskSchema, req.body);
+  const task = await Task.findByIdAndUpdate(req.params.id, data, {
     new: true,
     runValidators: true,
   });
@@ -114,10 +107,8 @@ exports.updateTask = asyncHandler(async (req, res) => {
 
 // PATCH /api/tasks/:id/status  — quick status-only update
 exports.updateStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
-  if (!["Pending", "In Progress", "Completed"].includes(status)) {
-    throw AppError.badRequest("Invalid status value");
-  }
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
+  const { status } = validate(updateStatusSchema, req.body);
   const task = await Task.findByIdAndUpdate(req.params.id, { status }, { new: true });
   if (!task) throw AppError.notFound("Task not found");
   sendResponse(res, STATUS.OK, "Status updated", { data: { task } });
@@ -125,9 +116,8 @@ exports.updateStatus = asyncHandler(async (req, res) => {
 
 // DELETE /api/tasks/:id
 exports.deleteTask = asyncHandler(async (req, res) => {
-  const task = await Task.findByIdAndDelete(req.params.id).catch(() => {
-    throw AppError.badRequest("Invalid task id");
-  });
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
+  const task = await Task.findByIdAndDelete(req.params.id);
   if (!task) throw AppError.notFound("Task not found");
   sendResponse(res, STATUS.OK, "Task deleted", { data: { task } });
 });

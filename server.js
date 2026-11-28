@@ -13,7 +13,6 @@ const STATUS       = require("./utils/statusCodes");
 const app = express();
 
 // ---- Middleware ----
-// ---- Middleware ----
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "https://task.uttirna.in")
   .split(",")
   .map((origin) => origin.trim());
@@ -29,7 +28,7 @@ app.use(express.json());
 
 // ---- Routes ----
 app.get("/", (req, res) => {
-  res.json({ success: true, message: "TaskPilot API is running" });
+  sendResponse(res, STATUS.OK, "TaskPilot API is running");
 });
 app.use("/api/tasks", taskRoutes);
 app.use("/api/team", teamRoutes);

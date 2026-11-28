@@ -1,8 +1,18 @@
+const mongoose     = require("mongoose");
 const TeamMember   = require("../models/TeamMember");
 const AppError     = require("../utils/AppError");
 const asyncHandler = require("../utils/asyncHandler");
 const sendResponse = require("../utils/response");
 const STATUS       = require("../utils/statusCodes");
+const validate     = require("../utils/validate");
+const {
+  createMemberSchema,
+  updateMemberSchema,
+} = require("../validators/schemas");
+
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
 
 // GET /api/team — employee -> assigned projects (object shape used across the dashboard)
 exports.getTeam = asyncHandler(async (req, res) => {
@@ -20,10 +30,8 @@ exports.getTeamList = asyncHandler(async (req, res) => {
 
 // POST /api/team
 exports.createMember = asyncHandler(async (req, res) => {
-  const { name, projects } = req.body;
-  if (!name) throw AppError.badRequest("Employee name is required");
-
-  const member = await TeamMember.create({ name, projects: projects || [] }).catch((err) => {
+  const data = validate(createMemberSchema, req.body);
+  const member = await TeamMember.create(data).catch((err) => {
     if (err.code === 11000) throw AppError.conflict("An employee with this name already exists");
     throw err;
   });
@@ -32,7 +40,9 @@ exports.createMember = asyncHandler(async (req, res) => {
 
 // PUT /api/team/:id
 exports.updateMember = asyncHandler(async (req, res) => {
-  const member = await TeamMember.findByIdAndUpdate(req.params.id, req.body, {
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid team member id");
+  const data = validate(updateMemberSchema, req.body);
+  const member = await TeamMember.findByIdAndUpdate(req.params.id, data, {
     new: true,
     runValidators: true,
   }).catch((err) => {
@@ -45,9 +55,8 @@ exports.updateMember = asyncHandler(async (req, res) => {
 
 // DELETE /api/team/:id
 exports.deleteMember = asyncHandler(async (req, res) => {
-  const member = await TeamMember.findByIdAndDelete(req.params.id).catch(() => {
-    throw AppError.badRequest("Invalid team member id");
-  });
+  if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid team member id");
+  const member = await TeamMember.findByIdAndDelete(req.params.id);
   if (!member) throw AppError.notFound("Team member not found");
   sendResponse(res, STATUS.OK, "Member deleted", { data: { member } });
 });
