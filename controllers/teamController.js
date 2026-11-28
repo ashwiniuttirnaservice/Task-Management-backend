@@ -1,69 +1,53 @@
-const TeamMember = require("../models/TeamMember");
-
-function sendError(res, status, message) {
-  return res.status(status).json({ success: false, message });
-}
+const TeamMember   = require("../models/TeamMember");
+const AppError     = require("../utils/AppError");
+const asyncHandler = require("../utils/asyncHandler");
+const sendResponse = require("../utils/response");
+const STATUS       = require("../utils/statusCodes");
 
 // GET /api/team — employee -> assigned projects (object shape used across the dashboard)
-exports.getTeam = async (req, res) => {
-  try {
-    const members = await TeamMember.find({}).sort({ name: 1 });
-    const data = {};
-    members.forEach((m) => {
-      data[m.name] = m.projects;
-    });
-    res.json({ success: true, data });
-  } catch (err) {
-    sendError(res, 500, err.message);
-  }
-};
+exports.getTeam = asyncHandler(async (req, res) => {
+  const members = await TeamMember.find({}).sort({ name: 1 });
+  const team = {};
+  members.forEach((m) => { team[m.name] = m.projects; });
+  sendResponse(res, STATUS.OK, "Team fetched", { data: { team } });
+});
 
 // GET /api/team/list — array with ids, for the add/edit/delete UI
-exports.getTeamList = async (req, res) => {
-  try {
-    const members = await TeamMember.find({}).sort({ name: 1 });
-    res.json({ success: true, data: members });
-  } catch (err) {
-    sendError(res, 500, err.message);
-  }
-};
+exports.getTeamList = asyncHandler(async (req, res) => {
+  const members = await TeamMember.find({}).sort({ name: 1 });
+  sendResponse(res, STATUS.OK, "Team list fetched", { data: { members } });
+});
 
 // POST /api/team
-exports.createMember = async (req, res) => {
-  try {
-    const { name, projects } = req.body;
-    if (!name) return sendError(res, 400, "Employee name is required");
+exports.createMember = asyncHandler(async (req, res) => {
+  const { name, projects } = req.body;
+  if (!name) throw AppError.badRequest("Employee name is required");
 
-    const member = await TeamMember.create({ name, projects: projects || [] });
-    res.status(201).json({ success: true, data: member });
-  } catch (err) {
-    if (err.code === 11000) return sendError(res, 400, "An employee with this name already exists");
-    sendError(res, 400, err.message);
-  }
-};
+  const member = await TeamMember.create({ name, projects: projects || [] }).catch((err) => {
+    if (err.code === 11000) throw AppError.conflict("An employee with this name already exists");
+    throw err;
+  });
+  sendResponse(res, STATUS.CREATED, "Member created", { data: { member } });
+});
 
 // PUT /api/team/:id
-exports.updateMember = async (req, res) => {
-  try {
-    const member = await TeamMember.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
-    if (!member) return sendError(res, 404, "Team member not found");
-    res.json({ success: true, data: member });
-  } catch (err) {
-    if (err.code === 11000) return sendError(res, 400, "An employee with this name already exists");
-    sendError(res, 400, err.message);
-  }
-};
+exports.updateMember = asyncHandler(async (req, res) => {
+  const member = await TeamMember.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  }).catch((err) => {
+    if (err.code === 11000) throw AppError.conflict("An employee with this name already exists");
+    throw err;
+  });
+  if (!member) throw AppError.notFound("Team member not found");
+  sendResponse(res, STATUS.OK, "Member updated", { data: { member } });
+});
 
 // DELETE /api/team/:id
-exports.deleteMember = async (req, res) => {
-  try {
-    const member = await TeamMember.findByIdAndDelete(req.params.id);
-    if (!member) return sendError(res, 404, "Team member not found");
-    res.json({ success: true, data: member });
-  } catch (err) {
-    sendError(res, 400, "Invalid team member id");
-  }
-};
+exports.deleteMember = asyncHandler(async (req, res) => {
+  const member = await TeamMember.findByIdAndDelete(req.params.id).catch(() => {
+    throw AppError.badRequest("Invalid team member id");
+  });
+  if (!member) throw AppError.notFound("Team member not found");
+  sendResponse(res, STATUS.OK, "Member deleted", { data: { member } });
+});

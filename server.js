@@ -1,11 +1,14 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const connectDB = require("./config/db");
+const express    = require("express");
+const cors       = require("cors");
+const connectDB  = require("./config/db");
 const taskRoutes = require("./routes/taskRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const TeamMember = require("./models/TeamMember");
 const { TEAM_DATA } = require("./utils/teamData");
+const AppError     = require("./utils/AppError");
+const sendResponse = require("./utils/response");
+const STATUS       = require("./utils/statusCodes");
 
 const app = express();
 
@@ -33,15 +36,18 @@ app.use("/api/team", teamRoutes);
 
 // ---- 404 handler ----
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: "Route not found" });
+  sendResponse(res, STATUS.NOT_FOUND, "Route not found");
 });
 
 // ---- Global error handler ----
 app.use((err, req, res, next) => {
+  if (err instanceof AppError) {
+    return sendResponse(res, err.statusCode, err.message, { error: err.message });
+  }
   console.error(err.stack);
-  res
-    .status(500)
-    .json({ success: false, message: "Something went wrong on the server" });
+  sendResponse(res, STATUS.INTERNAL_SERVER_ERROR, "Something went wrong on the server", {
+    error: err.message,
+  });
 });
 
 const PORT = process.env.PORT || 5001;

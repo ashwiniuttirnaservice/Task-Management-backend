@@ -1,5 +1,6 @@
 const express = require("express");
-const router = express.Router();
+const router  = express.Router();
+
 const {
   getTasks,
   getTaskById,
@@ -9,23 +10,21 @@ const {
   deleteTask,
   deleteAllTasks,
   getStatsSummary,
-  getReport
+  getReport,
 } = require("../controllers/taskController");
 
-// Specific routes must come before the generic "/:id" route
-router.get("/stats/summary", getStatsSummary);
-router.get("/report/:range", getReport);
+// Specific paths must come before the generic /:id route to avoid shadowing
+router.get("/stats/summary",  getStatsSummary);
+router.get("/report/:range",  getReport);
 
-router.route("/")
-  .get(getTasks)
-  .post(createTask)
-  .delete(deleteAllTasks);
+router.get("/",               getTasks);
+router.post("/",              createTask);
+router.delete("/",            deleteAllTasks);
 
-router.route("/:id")
-  .get(getTaskById)
-  .put(updateTask)
-  .delete(deleteTask);
+router.get("/:id",            getTaskById);
+router.put("/:id",            updateTask);
+router.delete("/:id",         deleteTask);
 
-router.patch("/:id/status", updateStatus);
+router.patch("/:id/status",   updateStatus);
 
 module.exports = router;
