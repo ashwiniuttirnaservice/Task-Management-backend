@@ -1,5 +1,6 @@
-const express = require("express");
-const router  = express.Router();
+const express  = require("express");
+const router   = express.Router();
+const { protect, requireRole } = require("../middleware/authMiddleware");
 
 const {
   getTasks,
@@ -13,18 +14,24 @@ const {
   getReport,
 } = require("../controllers/taskController");
 
-// Specific paths must come before the generic /:id route to avoid shadowing
+const admin = requireRole("admin");
+
+// All task routes require authentication
+router.use(protect);
+
+// Read — all authenticated users
 router.get("/stats/summary",  getStatsSummary);
 router.get("/report/:range",  getReport);
-
 router.get("/",               getTasks);
-router.post("/",              createTask);
-router.delete("/",            deleteAllTasks);
-
 router.get("/:id",            getTaskById);
-router.put("/:id",            updateTask);
-router.delete("/:id",         deleteTask);
 
+// Status update — all authenticated (employees update their own task status)
 router.patch("/:id/status",   updateStatus);
+
+// Writes — admin only
+router.post("/",              admin, createTask);
+router.delete("/",            admin, deleteAllTasks);
+router.put("/:id",            admin, updateTask);
+router.delete("/:id",         admin, deleteTask);
 
 module.exports = router;

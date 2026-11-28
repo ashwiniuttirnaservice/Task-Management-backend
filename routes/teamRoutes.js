@@ -1,5 +1,6 @@
-const express = require("express");
-const router  = express.Router();
+const express  = require("express");
+const router   = express.Router();
+const { protect, requireRole } = require("../middleware/authMiddleware");
 
 const {
   getTeam,
@@ -9,13 +10,18 @@ const {
   deleteMember,
 } = require("../controllers/teamController");
 
-// Specific paths must come before the generic /:id route
+const admin = requireRole("admin");
+
+// All team routes require authentication
+router.use(protect);
+
+// Read — all authenticated users
 router.get("/list",    getTeamList);
-
 router.get("/",        getTeam);
-router.post("/",       createMember);
 
-router.put("/:id",     updateMember);
-router.delete("/:id",  deleteMember);
+// Writes — admin only
+router.post("/",       admin, createMember);
+router.put("/:id",     admin, updateMember);
+router.delete("/:id",  admin, deleteMember);
 
 module.exports = router;

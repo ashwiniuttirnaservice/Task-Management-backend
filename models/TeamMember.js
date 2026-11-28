@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt   = require("bcryptjs");
 
 const TeamMemberSchema = new mongoose.Schema(
   {
@@ -51,8 +52,23 @@ const TeamMemberSchema = new mongoose.Schema(
       type:    Boolean,
       default: true,
     },
+    // Auth — only set for members who can log in
+    password: {
+      type:   String,
+      select: false,
+    },
   },
   { timestamps: true }
 );
+
+TeamMemberSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+TeamMemberSchema.methods.comparePassword = function (plain) {
+  return bcrypt.compare(plain, this.password);
+};
 
 module.exports = mongoose.model("TeamMember", TeamMemberSchema);
