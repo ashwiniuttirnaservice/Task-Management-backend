@@ -57,23 +57,25 @@ function isValidObjectId(id) {
 
 // GET /api/tasks  — supports optional ?employee=&priority=&status=&search=
 exports.getTasks = asyncHandler(async (req, res) => {
-  const { employee, priority, status, search } = validate(taskQuerySchema, req.query);
+  const { member, project, priority, status, search } = validate(taskQuerySchema, req.query);
   const query = {};
 
-  if (employee) query.employeeName = employee;
+  if (member)   query.assignedMembers = new mongoose.Types.ObjectId(member);
+  if (project)  query.projectName = project;
   if (priority) query.priority = priority;
   if (status)   query.status = status;
   if (search) {
     const regex = new RegExp(search, "i");
     query.$or = [
       { title: regex },
-      { employeeName: regex },
       { projectName: regex },
       { description: regex },
     ];
   }
 
-  const tasks = await Task.find(query).sort({ createdAt: -1 });
+  const tasks = await Task.find(query)
+    .populate("assignedMembers", "name position _id")
+    .sort({ createdAt: -1 });
   sendResponse(res, STATUS.OK, "Tasks fetched", {
     data:     { tasks },
     metadata: { count: tasks.length },
@@ -83,7 +85,7 @@ exports.getTasks = asyncHandler(async (req, res) => {
 // GET /api/tasks/:id
 exports.getTaskById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
-  const task = await Task.findById(req.params.id);
+  const task = await Task.findById(req.params.id).populate("assignedMembers", "name position _id");
   if (!task) throw AppError.notFound("Task not found");
   sendResponse(res, STATUS.OK, "Task fetched", { data: { task } });
 });
@@ -92,12 +94,13 @@ exports.getTaskById = asyncHandler(async (req, res) => {
 exports.createTask = asyncHandler(async (req, res) => {
   const data = validate(createTaskSchema, req.body);
   const task = await Task.create(data);
-  sendResponse(res, STATUS.CREATED, "Task created", { data: { task } });
-  // fire-and-forget — notify the assigned employee
-  TeamMember.findOne({ name: data.employeeName }).then((member) => {
+  const populated = await task.populate("assignedMembers", "name workingEmail _id");
+  sendResponse(res, STATUS.CREATED, "Task created", { data: { task: populated } });
+  // fire-and-forget — notify all assigned members
+  (populated.assignedMembers || []).forEach((member) => {
     if (member?.workingEmail) {
       emailService.sendTaskAssignedEmail({
-        employeeName: data.employeeName,
+        employeeName: member.name,
         workingEmail: member.workingEmail,
         taskTitle:    data.title,
         deadline:     data.deadline,
@@ -110,10 +113,8 @@ exports.createTask = asyncHandler(async (req, res) => {
 exports.updateTask = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) throw AppError.badRequest("Invalid task id");
   const data = validate(updateTaskSchema, req.body);
-  const task = await Task.findByIdAndUpdate(req.params.id, data, {
-    new: true,
-    runValidators: true,
-  });
+  const task = await Task.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true })
+    .populate("assignedMembers", "name position _id");
   if (!task) throw AppError.notFound("Task not found");
   sendResponse(res, STATUS.OK, "Task updated", { data: { task } });
 });

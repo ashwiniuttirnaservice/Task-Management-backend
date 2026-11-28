@@ -2,11 +2,10 @@ const mongoose = require("mongoose");
 
 const TaskSchema = new mongoose.Schema(
   {
-    employeeName: {
-      type: String,
-      required: [true, "Employee name is required"],
-      trim: true
-    },
+    assignedMembers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TeamMember",
+    }],
     projectName: {
       type: String,
       trim: true,
@@ -58,7 +57,7 @@ const TaskSchema = new mongoose.Schema(
 );
 
 // Helpful indexes for the filters/sorts the dashboard performs most often
-TaskSchema.index({ employeeName: 1 });
+TaskSchema.index({ assignedMembers: 1 });
 TaskSchema.index({ status: 1 });
 TaskSchema.index({ priority: 1 });
 TaskSchema.index({ deadline: 1 });

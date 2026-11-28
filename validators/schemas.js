@@ -9,10 +9,12 @@ const timeStr = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Must be a time in HH:MM format");
 
+const objectIdStr = z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid ObjectId");
+
 /* ---- task schemas ---- */
 exports.createTaskSchema = z
   .object({
-    employeeName: z.string().trim().min(1, "Employee name is required"),
+    assignedMembers: z.array(objectIdStr).min(1, "Assign at least one member"),
     title:        z.string().trim().min(1, "Task title is required"),
     description:  z.string().trim().min(1, "Description is required"),
     projectName:  z.string().trim().optional().default(""),
@@ -20,21 +22,21 @@ exports.createTaskSchema = z
     status:       z.enum(["Pending", "In Progress", "Completed"]).optional().default("Pending"),
     startDate:    dateStr,
     deadline:     dateStr,
-    startTime:    timeStr,
-    endTime:      timeStr,
+    startTime:    timeStr.or(z.literal("")).optional().default(""),
+    endTime:      timeStr.or(z.literal("")).optional().default(""),
   })
   .refine((v) => v.deadline >= v.startDate, {
     message: "Deadline cannot be earlier than the start date",
     path:    ["deadline"],
   })
-  .refine((v) => !(v.startDate === v.deadline && v.endTime <= v.startTime), {
+  .refine((v) => !(v.startDate === v.deadline && v.startTime && v.endTime && v.endTime <= v.startTime), {
     message: "End time must be after start time",
     path:    ["endTime"],
   });
 
 exports.updateTaskSchema = z
   .object({
-    employeeName: z.string().trim().min(1).optional(),
+    assignedMembers: z.array(objectIdStr).min(1).optional(),
     title:        z.string().trim().min(1).optional(),
     description:  z.string().trim().min(1).optional(),
     projectName:  z.string().trim().optional(),
@@ -62,7 +64,8 @@ exports.updateStatusSchema = z.object({
 
 /* ---- query param schemas ---- */
 exports.taskQuerySchema = z.object({
-  employee: z.string().trim().optional(),
+  member:   objectIdStr.optional(),
+  project:  z.string().trim().optional(),
   priority: z.enum(["High", "Medium", "Low"]).optional(),
   status:   z.enum(["Pending", "In Progress", "Completed"]).optional(),
   search:   z.string().trim().optional(),
@@ -78,8 +81,6 @@ const resourceSchema = z.object({
   url:         z.preprocess((v) => (v == null ? "" : v), z.string().trim().url("Enter a valid URL").or(z.literal(""))),
   description: optStr,
 });
-
-const objectIdStr = z.string().trim().regex(/^[a-f\d]{24}$/i, "Invalid ID");
 
 exports.createProjectSchema = z.object({
   name:        z.string().trim().min(1, "Project name is required"),
